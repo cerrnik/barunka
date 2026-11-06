@@ -483,7 +483,7 @@ function nightOf(m) { const h = (m / 60) % 24; if (h >= 7 && h < 18) return 0; i
 function addTime(mins) { S.min += mins; while (S.min >= 1440) { S.min -= 1440; S.day++; } drawClock(); try { needsTick(mins); } catch (e) {} }
 function setTime(h, m = 0, nextDay = false) { if (nextDay) S.day++; S.min = h * 60 + m; drawClock(); }
 function drawClock() { clockEl.textContent = `Den ${S.day} · ${hhmm(S.min)}`; clockEl.classList.toggle('night', nightOf(S.min) > .5); }
-const M = { visited: new Set(['Krmelín']), infoT: 0, cur: 'Krmelín', travel: null, follow: true, sel: null, wonMap: false };
+const M = { visited: new Set(['Krmelín', 'Brno']), infoT: 0, cur: 'Krmelín', travel: null, follow: true, sel: null, wonMap: false };
 // dynamic (upgradable) cells
 const DYN_IDX = [], DYN_W = [];
 { const raw = atob(DATA.dyn); let p = 0; const ch = i => raw.charCodeAt(i);
@@ -3025,8 +3025,9 @@ if (saved) {
   document.getElementById('saveInfo').textContent = `Uloženo: ${fmtK(saved.money)} · den ${saved.day || 1}, ${hhmm(saved.min ?? 480)}`;
 }
 function applySave(sv) {
-  owned = new Set(DATA.owned0); ups.clear(); M.visited = new Set(['Krmelín']); M.cur = 'Krmelín'; M.wonMap = false; S.money = 300; S.earned = 0; S.won = false; S.day = 1; S.min = 8 * 60; S.cityPaid = {}; S.cityBest = {}; S.food = 80; S.drink = 80; S.energy = 100; S.work = 0; S.love = 70; S.tom = {}; S.wish = null; S.gift = null; S.fun = {}; S.deco = []; S.cat = null;
+  owned = new Set(DATA.owned0); ups.clear(); M.visited = new Set(['Krmelín', 'Brno']); M.cur = 'Krmelín'; M.wonMap = false; S.money = 300; S.earned = 0; S.won = false; S.day = 1; S.min = 8 * 60; S.cityPaid = {}; S.cityBest = {}; S.food = 80; S.drink = 80; S.energy = 100; S.work = 0; S.love = 70; S.tom = {}; S.wish = null; S.gift = null; S.fun = {}; S.deco = []; S.cat = null;
   if (sv) { owned = new Set(sv.owned); owned.add('shell'); (sv.ups || []).forEach(u => { if (UPS.some(x => x.id === u)) ups.add(u); }); if (sv.v === 2) { (sv.visited || []).forEach(v => { if (PIDX[v] !== undefined) M.visited.add(v); }); M.wonMap = !!sv.wonMap; } S.money = sv.money; S.earned = sv.earned || 0; S.won = !!sv.won; S.day = sv.day || 1; S.min = sv.min ?? 8 * 60; S.cityPaid = sv.cityPaid || {}; S.cityBest = sv.cityBest || {}; S.food = sv.food ?? 80; S.drink = sv.drink ?? 80; S.energy = sv.energy ?? 100; S.work = sv.work || 0; S.love = sv.love ?? 70; S.tom = sv.tom || {}; S.wish = sv.wish || null; S.gift = sv.gift || null; S.fun = sv.fun || {}; S.deco = sv.deco || []; S.cat = sv.cat || null; }
+  M.visited.add('Brno');
   S.night = nightOf(S.min); drawClock(); try { needsHUD(); } catch (e) {}
   for (const o of OBJS) { if (o.type === 'door') o.on = true; if (o.type === 'lamp') o.on = false; if (o.type === 'tv') o.on = true; }
   recomputeAll();
