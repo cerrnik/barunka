@@ -84,14 +84,47 @@ body { background: var(--scene); color: var(--ink); font-family: var(--f-body); 
 .lbl::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 7px; height: 7px; background: var(--label-bg); transform: translateX(-50%) rotate(45deg); }
 .lbl small { font-weight: 400; opacity: .8; margin-left: 4px; }
 #err { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+
+/* Collapsible info card + compact phone controls */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-tg { font: 700 .74rem/1 var(--f-body); color: var(--muted); background: transparent; border: 1px solid var(--line);
+  border-radius: 4px; padding: 6px 9px; cursor: pointer; flex: none; }
+.card-tg:hover { color: var(--ink); }
+.card-tg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card-body { display: grid; gap: 8px; }
+.card:not(.open) .card-body { display: none; }
+.bar, .opts { display: contents; }
+#opts-wrap { display: none; }
+@media (max-width: 760px), (max-height: 520px) {
+  .hint { display: none; }
+  .card { padding: 7px 8px 7px 12px; gap: 6px; max-width: calc(100vw - 32px); }
+  .card:not(.open) h1 { font-size: 1rem; }
+  .card.open { max-height: calc(100vh - 150px); overflow-y: auto; }
+  .dock { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 6px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .bar { display: flex; gap: 6px; pointer-events: none; }
+  .bar .views { flex: 1; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .bar .views::-webkit-scrollbar { display: none; }
+  .bar .views button { flex: none; padding: 10px 10px; }
+  #opts-wrap { display: flex; flex: none; }
+  #opts-wrap button { padding: 10px 11px; }
+  .opts { display: none; order: -1; pointer-events: auto; }
+  .dock.opts-open .opts { display: flex; flex-direction: column; gap: 6px; max-height: 44vh; overflow-y: auto; overscroll-behavior: contain; }
+  .opts .group { flex: none; }
+  .opts .group .cap { width: 100%; padding: 4px 6px 2px; }
+  .group .swb { width: 30px; height: 30px; }
+}
 </style>
 
 <canvas id="gl" aria-label="3D model koupelny, otáčení tažením"></canvas>
 <div id="labels"></div>
 <div id="err" hidden>3D zobrazení se nepodařilo spustit. Zkus stránku otevřít v jiném prohlížeči.</div>
 
-<section class="card" aria-label="Údaje o koupelně">
-  <h1>Nová koupelna</h1>
+<section class="card open" id="card" aria-label="Údaje o koupelně">
+  <div class="card-head">
+    <h1>Nová koupelna</h1>
+    <button class="card-tg" id="t-card" aria-expanded="true" aria-controls="card-body">Skrýt</button>
+  </div>
+  <div class="card-body" id="card-body">
   <p class="sub">Byt v rekonstrukci · tmavý beton, ručně glazované kachle, teplé dřevo</p>
   <dl class="specs">
     <dt>Hlavní část s okny</dt><dd>2,60 × 2,30 m</dd>
@@ -119,12 +152,14 @@ body { background: var(--scene); color: var(--ink); font-family: var(--f-body); 
       <li><b>WC</b> Geberit Duofix 112 cm + závěsné WC rimless</li>
     </ul>
   </details>
+  </div>
 </section>
 
 <div class="hint">Tažení: otáčení<br>Kolečko / sevření: přiblížení<br>Pravé tlačítko / dva prsty: posun</div>
 
-<nav class="dock" aria-label="Ovládání">
-  <div class="group" role="group" aria-label="Pohledy">
+<nav class="dock" id="dock" aria-label="Ovládání">
+  <div class="bar">
+  <div class="group views" role="group" aria-label="Pohledy">
     <button id="v-celek" data-view="celek" aria-pressed="true">Celek</button>
     <button id="v-shora" data-view="shora" aria-pressed="false">Shora</button>
     <button id="v-dvere" data-view="dvere" aria-pressed="false">Od dveří</button>
@@ -134,6 +169,11 @@ body { background: var(--scene); color: var(--ink); font-family: var(--f-body); 
     <button id="v-wc" data-view="wc" aria-pressed="false">WC</button>
     <button id="v-pracka" data-view="pracka" aria-pressed="false">Pračka</button>
   </div>
+  <div class="group" id="opts-wrap">
+    <button id="t-opts" aria-expanded="false" aria-controls="opts">Materiály ▴</button>
+  </div>
+  </div>
+  <div class="opts" id="opts">
   <div class="group" role="group" aria-label="Barva akcentního obkladu">
     <span class="cap">Kachle</span>
     <button id="p-0" data-pal="0" aria-pressed="true"><span class="sw" style="background:#3b5643"></span>Mechová</button>
@@ -159,6 +199,7 @@ body { background: var(--scene); color: var(--ink); font-family: var(--f-body); 
   <div class="group" role="group" aria-label="Přepínače">
     <button id="t-door" aria-pressed="true">Dveře otevřené</button>
     <button id="t-labels" aria-pressed="true">Popisky</button>
+  </div>
   </div>
 </nav>
 
@@ -818,13 +859,23 @@ const VIEWS = {
   pracka:   { p: [.62, 1.55, 2.55], t: [.5, 1.0, .2],   fov: 60 }
 };
 let tween = null;
+// Views are framed for a landscape screen. On a narrow (portrait) screen widen the vertical FOV
+// so roughly the same width of the room stays in frame, capped to keep distortion acceptable.
+let baseFov = 50;
+function fitFov(f) {
+  const a = window.innerWidth / Math.max(1, window.innerHeight), ref = 1.25;
+  if (a >= ref) return f;
+  const r = Math.PI / 180;
+  return Math.min(96, 2 * Math.atan(Math.tan(f * r / 2) * ref / a) / r);
+}
+function setFov(f) { baseFov = f; camera.fov = fitFov(f); camera.updateProjectionMatrix(); }
 function goView(name, instant) {
   const v = VIEWS[name]; if (!v) return;
   document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const to = { p: new THREE.Vector3().fromArray(v.p), t: new THREE.Vector3().fromArray(v.t), fov: v.fov };
-  if (instant || reduce) { camera.position.copy(to.p); controls.target.copy(to.t); camera.fov = to.fov; camera.updateProjectionMatrix(); tween = null; return; }
-  tween = { from: { p: camera.position.clone(), t: controls.target.clone(), fov: camera.fov }, to, t0: performance.now(), dur: 1000 };
+  if (instant || reduce) { camera.position.copy(to.p); controls.target.copy(to.t); setFov(to.fov); tween = null; return; }
+  tween = { from: { p: camera.position.clone(), t: controls.target.clone(), fov: baseFov }, to, t0: performance.now(), dur: 1000 };
 }
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => goView(b.dataset.view)));
 document.querySelectorAll('[data-pal]').forEach(b => b.addEventListener('click', () => applyPalette(+b.dataset.pal)));
@@ -864,6 +915,32 @@ btnLabels.addEventListener('click', () => {
   btnLabels.setAttribute('aria-pressed', String(showLabels));
 });
 
+// Info card and (on phones) the materials sheet fold away so the room stays visible.
+const compact = window.matchMedia('(max-width: 760px), (max-height: 520px)').matches;
+const card = document.getElementById('card'), btnCard = document.getElementById('t-card');
+function setCard(open) {
+  card.classList.toggle('open', open);
+  btnCard.setAttribute('aria-expanded', String(open));
+  btnCard.textContent = open ? 'Skrýt' : 'Info';
+}
+btnCard.addEventListener('click', () => {
+  const open = !card.classList.contains('open');
+  setCard(open);
+  if (open && compact) setOpts(false);
+});
+const dock = document.getElementById('dock'), btnOpts = document.getElementById('t-opts');
+function setOpts(open) {
+  dock.classList.toggle('opts-open', open);
+  btnOpts.setAttribute('aria-expanded', String(open));
+  btnOpts.textContent = open ? 'Hotovo ▾' : 'Materiály ▴';
+  if (open) setCard(false);
+}
+btnOpts.addEventListener('click', () => setOpts(!dock.classList.contains('opts-open')));
+if (compact) {
+  setCard(false);
+  showLabels = false; btnLabels.setAttribute('aria-pressed', 'false');
+}
+
 function syncBg() {
   const c = getComputedStyle(document.documentElement).getPropertyValue('--scene').trim() || '#e4e1dc';
   scene.background = new THREE.Color(c);
@@ -873,11 +950,14 @@ try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change
 new MutationObserver(syncBg).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 /* ---------- loop ---------- */
-let vw = 0, vh = 0;
+let vw = 0, vh = 0, viewShift = 0;
+const optsBox = document.getElementById('opts');
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   if (w === vw && h === vh) return;
-  vw = w; vh = h; renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+  vw = w; vh = h; renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h);
+  if (viewShift) camera.setViewOffset(vw, vh, 0, viewShift, vw, vh);
+  setFov(baseFov);
 }
 const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const rel = new THREE.Vector3();
@@ -889,8 +969,17 @@ function frame(now) {
     const k = Math.min(1, (now - tween.t0) / tween.dur), e = ease(k);
     camera.position.lerpVectors(tween.from.p, tween.to.p, e);
     controls.target.lerpVectors(tween.from.t, tween.to.t, e);
-    camera.fov = tween.from.fov + (tween.to.fov - tween.from.fov) * e; camera.updateProjectionMatrix();
+    setFov(tween.from.fov + (tween.to.fov - tween.from.fov) * e);
     if (k >= 1) tween = null;
+  }
+  // with the phone materials sheet open, shift the picture up so the room sits in the visible part
+  const wantShift = dock.classList.contains('opts-open') ? optsBox.getBoundingClientRect().height / 2 : 0;
+  if (Math.abs(wantShift - viewShift) > .5) {
+    viewShift += (wantShift - viewShift) * Math.min(1, dt * 8);
+    camera.setViewOffset(vw, vh, 0, viewShift, vw, vh);
+  } else if (viewShift !== wantShift) {
+    viewShift = wantShift;
+    if (viewShift) camera.setViewOffset(vw, vh, 0, viewShift, vw, vh); else camera.clearViewOffset();
   }
   controls.update();
   doorAngle += (doorTarget - doorAngle) * Math.min(1, dt * 6);
